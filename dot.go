@@ -32,7 +32,6 @@ func WriteDotFormat(w io.Writer, filename string, nodes []*Node) error {
 	for _, node := range nodes {
 		totalCount += node.Count
 	}
-	fmt.Printf("\033[01;34m>>>> totalCount: %v\x1B[m\n", totalCount)
 
 	nodeToDotNode := make(map[*Node]*DotNode)
 	var dotNodes []*DotNode

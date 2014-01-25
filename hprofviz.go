@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	topk  = flag.Int("topk", -1, "Only keep the top k most frequently sampled nodes and their ancestors")
-	regex = flag.String("regex", "", "Only keep matching sampled nodes and their ancestors")
+	topk      = flag.Int("topk", -1, "Only keep the top k most frequently sampled nodes and their ancestors")
+	regex     = flag.String("regex", "", "Only keep matching sampled nodes and their ancestors")
+	threshold = flag.Float64("threshold", 0.05, "Exclude nodes sampled fewer than this ratio of the sample count")
 )
 
 type CallSite struct {
@@ -95,6 +96,45 @@ func CreateNodes(traces map[*Trace]bool) []*Node {
 	}
 	return nodeList
 }
+
+func FilterThreshold(nodes []*Node, t float64) []*Node {
+	totalCount := 0
+	for _, node := range nodes {
+		totalCount += node.Count
+	}
+	min := int(t * float64(totalCount))
+
+	highCountNodes := make(map[*Node]bool)
+	for _, node := range nodes {
+		if node.CumulativeCount > min {
+			highCountNodes[node] = true
+		}
+	}
+
+	// Clean up edges
+	for node := range highCountNodes {
+		for child := range node.EdgeWeights {
+			if !highCountNodes[child] {
+				delete(node.EdgeWeights, child)
+			}
+		}
+		if len(node.EdgeWeights) == 0 {
+			node.EdgeWeights = nil
+		}
+	}
+
+	newTotal := 0
+	var newNodes []*Node
+	for node := range highCountNodes {
+		newNodes = append(newNodes, node)
+		newTotal += node.Count
+	}
+
+	fmt.Printf("Removed %d nodes below threshold of %.1f%% (%d)\n", len(nodes)-len(newNodes), t*100, min)
+
+	return newNodes
+}
+
 func CountSum(traces map[*Trace]bool) int {
 	sum := 0
 	for trace := range traces {
@@ -141,6 +181,8 @@ func main() {
 	}
 
 	nodes := CreateNodes(traces)
+	nodes = FilterThreshold(nodes, *threshold)
+
 	fmt.Printf("%d nodes for rendering\n", len(nodes))
 
 	f, err := os.Create(flag.Arg(1))
