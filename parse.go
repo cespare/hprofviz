@@ -17,7 +17,7 @@ var (
 	samplesColumns = regexp.MustCompile(`^rank\s+self\s+accum\s+count\s+trace\s+method$`)
 )
 
-func ParseHProfFile(filename string) map[int]*Trace {
+func ParseHProfFile(filename string) map[*Trace]bool {
 	f, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -127,5 +127,10 @@ func ParseHProfFile(filename string) map[int]*Trace {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	return traces
+
+	traceSet := make(map[*Trace]bool)
+	for _, trace := range traces {
+		traceSet[trace] = true
+	}
+	return traceSet
 }
