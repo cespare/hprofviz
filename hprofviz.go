@@ -113,7 +113,7 @@ func main() {
 		log.Fatal("Cannot provide both -topk and -regexp.")
 	}
 	flag.Usage = func() {
-		fmt.Println("Usage: hprofviz [OPTIONS] HPROF_FILE.txt OUTPUT_FILE.dot\nwhere OPTIONS are:\n")
+		fmt.Println("Usage: hprofviz [OPTIONS] HPROF_FILE.txt OUTPUT_FILE.dot\nwhere OPTIONS are:")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
