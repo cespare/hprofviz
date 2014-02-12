@@ -1,7 +1,7 @@
 # HProfviz
 
 HProfviz turns  [HProf](http://docs.oracle.com/javase/7/docs/technotes/samples/hprof.html)'s CPU sampling
-output into a graph in the [DOT language](http://en.wikipedia.org/wiki/DOT_(graph_description_language) in a
+output into a graph in the [DOT language](http://en.wikipedia.org/wiki/DOT_(graph_description_language)) in a
 manner similar to [gperftools](https://code.google.com/p/gperftools).
 
 ## Installation
