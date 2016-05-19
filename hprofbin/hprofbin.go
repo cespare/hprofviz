@@ -28,8 +28,11 @@ type reader struct {
 	frameByID     map[uint64]*frame
 	traceBySerial map[uint32]*trace
 
-	total      int64
-	traceSizes map[uint32]int64
+	total                  int64
+	instanceOverhead       int64
+	objectArrayOverhead    int64
+	primitiveArrayOverhead int64
+	traceSizes             map[uint32]int64
 
 	tags    [256]int
 	subTags [256]int
@@ -47,11 +50,12 @@ func newReader(r io.Reader) *reader {
 	}
 }
 
-// TODO: figure out what the real overheads are, and how to calculate them.
+// TODO: Compute/guess overhead more accurately.
+// These header sizes are correct for 64-bit OpenJDK 8, empirically.
 const (
-	instanceOverhead       = 16
-	objectArrayOverhead    = 24
-	primitiveArrayOverhead = 24
+	instanceHeaderSize       = 16
+	objectArrayHeaderSize    = 24
+	primitiveArrayHeaderSize = 24
 )
 
 type readerError struct {
@@ -360,8 +364,9 @@ func (r *reader) readHeapDumpSegment() int {
 		r.ignore(nn)
 		n += r.idSize + 4 + r.idSize + 4 + nn
 
-		size := int64(nn) + instanceOverhead
+		size := int64(nn) + instanceHeaderSize
 		r.total += size
+		r.instanceOverhead += instanceHeaderSize
 		r.traceSizes[traceSerial] += size
 	case 0x22: // OBJECT ARRAY DUMP
 		r.id() // array object ID
@@ -373,8 +378,9 @@ func (r *reader) readHeapDumpSegment() int {
 		}
 		n += r.idSize + 4 + 4 + r.idSize + nn*r.idSize
 
-		size := int64(nn*r.idSize) + objectArrayOverhead
+		size := int64(nn*r.idSize) + objectArrayHeaderSize
 		r.total += size
+		r.objectArrayOverhead += objectArrayHeaderSize
 		r.traceSizes[traceSerial] += size
 	case 0x23: // PRIMITIVE ARRAY DUMP
 		r.id() // array object ID
@@ -385,8 +391,9 @@ func (r *reader) readHeapDumpSegment() int {
 		r.ignore(nn * w)
 		n += r.idSize + 4 + 4 + 1 + nn*w
 
-		size := int64(nn*w) + primitiveArrayOverhead
+		size := int64(nn*w) + primitiveArrayHeaderSize
 		r.total += size
+		r.primitiveArrayOverhead += primitiveArrayHeaderSize
 		r.traceSizes[traceSerial] += size
 	default:
 		r.errorf("unknown sub-tag %x", tag)
@@ -420,7 +427,7 @@ func (r *reader) readRecord() (done bool) {
 		for n > 0 {
 			n -= r.readHeapDumpSegment()
 		}
-		return true // TODO: remove
+		//return true // TODO: remove
 	default:
 		r.ignore(n)
 	}
@@ -527,6 +534,18 @@ func main() {
 		fmt.Printf("%d\t%d\t(%s)\n", ss.serial, ss.size, humanize.Bytes(uint64(ss.size)))
 		fmt.Println(r.traceBySerial[ss.serial])
 	}
+	fmt.Println()
+	fmt.Printf("instance overhead: %d (%s)\n",
+		r.instanceOverhead, humanize.Bytes(uint64(r.instanceOverhead)))
+	fmt.Printf("object array overhead: %d (%s)\n",
+		r.objectArrayOverhead, humanize.Bytes(uint64(r.objectArrayOverhead)))
+	fmt.Printf("primitive array overhead: %d (%s)\n",
+		r.primitiveArrayOverhead, humanize.Bytes(uint64(r.primitiveArrayOverhead)))
+	overhead := r.instanceOverhead + r.objectArrayOverhead + r.primitiveArrayOverhead
+	fmt.Printf("total overhead: %d/%d (%s / %s) %.2f%%\n",
+		overhead, r.total,
+		humanize.Bytes(uint64(overhead)), humanize.Bytes(uint64(r.total)),
+		(float64(overhead)/float64(r.total))*100)
 	fmt.Println()
 	fmt.Println("tags:")
 	for i, c := range r.tags {
