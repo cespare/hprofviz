@@ -35,6 +35,9 @@ func ParseHProfFile(filename string) map[*Trace]bool {
 	callSites := make(map[string]*CallSite) // by line (stripped of leading \t)
 	var currentTrace *Trace
 	scanner := bufio.NewScanner(f)
+	// Sometimes lines are longer than the 64k Scanner default.
+	// Start out with a 500k buffer and allow up to 10MB.
+	scanner.Buffer(make([]byte, 500e3), 10e6)
 	inTrace := false
 	inSamples := false
 	for scanner.Scan() {
